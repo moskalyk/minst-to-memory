@@ -29,8 +29,13 @@ import {
 
 import { Web3ReactProvider } from '@web3-react/core'
 import { Web3Provider } from '@ethersproject/providers'
+import { JsonRpcProvider } from '@ethersproject/providers'
 import { ethers } from "ethers";
 import { useWeb3React } from '@web3-react/core'
+
+import { InjectedConnector } from '@web3-react/injected-connector'
+
+import memory from './brain_leaf.png'
 
 export const MARKET_ADDRESS = addresses.rinkeby.market
 export const MEDIA_ADDRESS = addresses.rinkeby.media
@@ -50,10 +55,15 @@ let ethersProvider;
 
 /////
 
-const wallet = Wallet.createRandom()
-console.log(wallet)
+const provider = new JsonRpcProvider("https://eth-rinkeby.alchemyapi.io/v2/PdGoR9aJd30L8yWyNLh5kqGTKKxfCXAU")
 
-const zora = new Zora(wallet, 50, MEDIA_ADDRESS, MARKET_ADDRESS)
+// const wallet = Wallet.createRandom()
+// const wallet = Wallet.createRandom().connect(provider)
+// console.log(wallet)
+
+let zora; 
+
+// zora = new Zora(wallet, 4)
 
 const IPFS = require('ipfs-core')
 const uint8ArrayConcat = require('uint8arrays/concat')
@@ -62,6 +72,7 @@ var ipfs;
 
 function getLibrary(provider) {
   console.log(provider)
+  console.log('getting library')
   // const provider = new ethers.providers.AlchemyProvider
   // const provider = 
   ethersProvider = new ethers.providers.Web3Provider(window.ethereum)
@@ -215,7 +226,7 @@ async function catValue() {
 // }
 }
 
-function mint(mediaData) {
+function mint(mediaData, setModel) {
 
   const bidShares = constructBidShares(
     10, // creator share
@@ -226,10 +237,11 @@ function mint(mediaData) {
 
   zora.mint(mediaData, bidShares).then((tx) => {
     console.log(tx)
+    setModel(tx.hash)
   })
 }
 
-async function getVariableValues() {
+async function getVariableValues(setModel) {
 
   const obj = {
     G1w: { shape: G1w.shape, data: Array.from(G1w.dataSync()) },
@@ -289,7 +301,7 @@ async function getVariableValues() {
   //   metadataHash
   // )
 
-  mint(mediaData)
+  mint(mediaData, setModel)
 
 
   // return obj;
@@ -351,7 +363,7 @@ async function sampleImage() {
   const ctx = canvas.getContext('2d');
   const imageData = new ImageData(options.width, options.height);
   const data = gen(seed(1)).dataSync();
-  console.log(data)
+  // console.log(data)
   
   // Undo tanh
   /*
@@ -365,7 +377,7 @@ async function sampleImage() {
     imageData.data[i] = unflat[i];
   }
   // await ipfs.add(imageData)
-  console.log(imageData)
+  // console.log(imageData)
   // const { cid } = await ipfs.add(imageData)
   // console.log(cid.string)
 
@@ -386,8 +398,11 @@ export const WalletEl = (props) => {
     useEffect(async () => {
       console.log(`use effect -- account: ${account}`)
       console.log(ethersProvider)
-      if(ethersProvider){
-        props.setAccount(account)
+      if(zora){
+        props.setAccount(zora.address)
+        // console.log(ethersProvider)
+
+        console.log(zora)
       }else {
         console.log('provider NOT_SET')
       }
@@ -395,6 +410,14 @@ export const WalletEl = (props) => {
     }, [account,active,ethersProvider])
 
   const onActivateClick = async () => {
+      console.log('activating')
+      console.log(await provider.getSigner())
+
+        var privateKey = "";
+        var wallet = new Wallet(privateKey).connect(provider)
+
+        zora = new Zora(wallet, 4, MEDIA_ADDRESS, MARKET_ADDRESS)
+        console.log(wallet)
       activate(injectedConnector)
   }
 
@@ -403,11 +426,10 @@ export const WalletEl = (props) => {
       {active ? (
         <>
           <div >account: {account ? account.substring(0,5)+'...' : ''}</div>
-          <div >dai balance: {props.balance}</div>
           <div> ✅ </div>
         </>
       ) : (
-        <Button name="connect" style={{marginLeft: '-9px'}} onClick={() => onActivateClick()}>⎈</Button>
+        <button name="connect" style={{marginLeft: '-9px'}} onClick={() => onActivateClick()}>🌱</button>
       )}
     </div>
   )
@@ -423,8 +445,7 @@ const Account = (props) => {
   console.log(account)
   return (
     <Web3ReactProvider getLibrary={getLibrary}>
-      {props.base ? '' : <p>{'⇪'}</p> }
-      <Wallet balance={balance} setBigbalance={setBigbalance} setBalance={setBalance} setAccount={setAccount}/>
+      <WalletEl balance={balance} setBigbalance={setBigbalance} setBalance={setBalance} setAccount={setAccount}/>
       {/*wallet*/}
     </Web3ReactProvider>
   )
@@ -432,21 +453,32 @@ const Account = (props) => {
 
 
 function App() {
+  const [model, setModel] = useState('')
+  const [isBooted, setIsBooted] = useState(false)
 
   useEffect(() => {
-    boot()
-    loadMnist();
+    if(!isBooted){
+      boot()
+      loadMnist();
+    }
+    setIsBooted(true)
   })
 
   return (
     <div className="App">
-      <h1>MNIST to Memory</h1>
-      <WalletEl />
+      <br/>
+      <br/>
+      <img src={memory} width={'15%'}/>
+      <br/>
+      <h1>MNIST to Memory (m2m)</h1>
+      <Account />
+      <br/>
+      <p>generator model: {model}</p>
       <button id="train" onClick={async () => await train()}>Train</button>
-      <button onClick={loadCachedModel}>Load weights</button>
-      <button onClick={sampleImage}>Sample image</button>
-      <button onClick={() => getVariableValues()}>mint model</button>
-      <button onClick={async () => await catValue()}>get cat</button>
+      <button onClick={loadCachedModel}>load weights</button>
+      <button onClick={sampleImage}>mint image</button>
+      <button onClick={() => getVariableValues(setModel)}>mint model</button>
+      {/*<button onClick={async () => await catValue()}>get cat</button>*/}
       {/*<button onClick={getVariableValues}>download</button>*/}
       <div id="samples-container"></div>
     </div>
