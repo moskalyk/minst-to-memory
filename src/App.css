@@ -36,3 +36,8 @@
     transform: rotate(360deg);
   }
 }
+
+canvas {
+  width: 6.9%;
+  padding: 20px;
+}
